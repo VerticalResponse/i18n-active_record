@@ -61,7 +61,8 @@ module I18n
           end
 
           def lookup(keys, *separator)
-            column_name = connection.quote_column_name('key')
+            column_name = ''
+            connection.columns('translations').each {|col| column_name = connection.quote_column_name(col.name) if col.name.include?('key')}
             keys = Array(keys).map! { |key| key.to_s }
 
             unless separator.empty?
