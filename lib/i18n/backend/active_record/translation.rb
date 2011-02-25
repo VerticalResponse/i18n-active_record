@@ -51,9 +51,22 @@ module I18n
 
         set_table_name 'translations'
         attr_protected :is_proc, :interpolations
+        cattr_accessor :key_column_name, :value_column_name
 
         serialize :value
         serialize :interpolations, Array
+
+        def self.set_key_column(key_column)
+          @@key_column_name = key_column || 'key'
+        end
+
+        def self.set_value_column(value_column)
+          @@value_column_name = value_column || 'value'
+        end
+
+        def key
+          read_attribute(@@key_column_name)
+        end
 
         class << self
           def locale(locale)
@@ -61,8 +74,6 @@ module I18n
           end
 
           def lookup(keys, *separator)
-            column_name = ''
-            connection.columns('translations').each {|col| column_name = connection.quote_column_name(col.name) if col.name.include?('key')}
             keys = Array(keys).map! { |key| key.to_s }
 
             unless separator.empty?
@@ -71,7 +82,7 @@ module I18n
             end
 
             namespace = "#{keys.last}#{I18n::Backend::Flatten::FLATTEN_SEPARATOR}%"
-            scoped(:conditions => ["#{column_name} IN (?) OR #{column_name} LIKE ?", keys, namespace])
+            scoped(:conditions => ["#{@@key_column_name} IN (?) OR #{@@key_column_name} LIKE ?", keys, namespace])
           end
 
           def available_locales
@@ -84,7 +95,7 @@ module I18n
         end
 
         def value
-          value = read_attribute(:value)
+          value = read_attribute(@@value_column_name)
           if is_proc
             Kernel.eval(value)
           elsif value == FALSY_CHAR
@@ -103,7 +114,17 @@ module I18n
             value = TRUTHY_CHAR
           end
 
-          write_attribute(:value, value)
+          write_attribute(@@key_column_name, value)
+        end
+
+        def key=(key)
+          if key === false
+            key = FALSY_CHAR
+          elsif key === true
+            key = TRUTHY_CHAR
+          end
+
+          write_attribute(@@key_column_name, key)
         end
       end
     end
